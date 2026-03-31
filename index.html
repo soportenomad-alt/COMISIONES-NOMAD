@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comisiones Nomad · Firebase</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="loginView" class="screen">
+    <div class="login-card">
+      <img src="img/innvida-logo.png" alt="Nomad" class="login-logo" />
+      <h1>Comisiones Nomad</h1>
+      <p class="muted">Consulta automática de comisiones con base en cotizaciones aceptadas de Firebase.</p>
+      <form id="loginForm" class="login-form">
+        <label>
+          Vendedor / KAM
+          <input id="sellerName" type="text" placeholder="Ej. Angel Sánchez / Marymar Martinez / Claudia" required />
+        </label>
+        <label>
+          Correo
+          <input id="sellerEmail" type="email" placeholder="kam2.mx@nomadgenetics.com" />
+        </label>
+        <button type="submit" class="btn primary full">Entrar</button>
+      </form>
+      <p class="tiny">Prueba sugerida: kam2.mx@nomadgenetics.com / Angel Sánchez, ger.genomica@nomadgenetics.com / Marymar Martinez o kam.gdl1@nomadgenetics.com / Claudia.</p>
+    </div>
+  </div>
+
+  <div id="appView" class="screen hidden">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">NOMAD · FIREBASE + EXCEL</p>
+        <h1>Panel de comisiones</h1>
+        <p class="muted">Vendedor: <strong id="currentSeller">-</strong> · <span id="currentSellerEmail">Sin correo</span></p>
+      </div>
+      <div class="topbar-actions">
+        <button id="refreshBtn" class="btn secondary">Actualizar</button>
+        <button id="exportBtn" class="btn primary">Exportar CSV</button>
+        <button id="logoutBtn" class="btn ghost">Salir</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="panel filters">
+        <div class="field">
+          <label>Mes</label>
+          <input type="month" id="monthFilter" />
+        </div>
+        <div class="field">
+          <label>Buscar</label>
+          <input type="text" id="searchInput" placeholder="folio, paciente, médico o prueba" />
+        </div>
+        <div class="field field-checks">
+          <label><input type="checkbox" id="acceptedOnly" checked /> Solo aceptadas</label>
+          <label><input type="checkbox" id="showAllSellerQuotes" /> Ver todas las de mi KAM aunque no estén aceptadas</label>
+        </div>
+      </section>
+
+      <section class="cards">
+        <article class="card">
+          <span class="card-label">Cotizaciones consideradas</span>
+          <strong id="quotesCount">0</strong>
+          <small id="acceptedLegend">Solo aceptadas</small>
+        </article>
+        <article class="card">
+          <span class="card-label">Venta total cotizada</span>
+          <strong id="salesTotal">$0.00</strong>
+          <small>Según total de la cotización</small>
+        </article>
+        <article class="card">
+          <span class="card-label">Comisión comercial</span>
+          <strong id="commercialTotal">$0.00</strong>
+          <small>Calculada por prueba aceptada</small>
+        </article>
+        <article class="card">
+          <span class="card-label">Comisión médico</span>
+          <strong id="doctorTotal">$0.00</strong>
+          <small>Referencia desde Excel</small>
+        </article>
+        <article class="card warning">
+          <span class="card-label">Pruebas sin match</span>
+          <strong id="unmatchedCount">0</strong>
+          <small>Revisar nombres en Excel</small>
+        </article>
+      </section>
+
+      <section class="grid">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Cotizaciones</h2>
+            <span class="badge" id="tableCount">0 resultados</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Folio</th>
+                  <th>Paciente</th>
+                  <th>Médico</th>
+                  <th>KAM</th>
+                  <th>Estatus</th>
+                  <th>Total cotización</th>
+                  <th>Comisión comercial</th>
+                  <th>Detalle</th>
+                </tr>
+              </thead>
+              <tbody id="quotesTableBody">
+                <tr><td colspan="9" class="empty">Cargando información...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel side-panel">
+          <div class="panel-head">
+            <h2>Detalle de pruebas</h2>
+          </div>
+          <div id="detailBox" class="detail-box">
+            Selecciona una cotización para ver el desglose de pruebas y comisiones.
+          </div>
+        </section>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Pruebas sin relación en Excel</h2>
+        </div>
+        <div id="unmatchedList" class="chips-list">
+          <span class="empty-chip">Sin diferencias por ahora.</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="data.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
