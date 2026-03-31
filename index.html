@@ -15,22 +15,22 @@
       <form id="loginForm" class="login-form">
         <label>
           Vendedor / KAM
-          <input id="sellerName" type="text" placeholder="Ej. Angel Sánchez / Marymar Martinez / Claudia" required />
+          <input id="sellerName" type="text" placeholder="Ingresa tu nombre" required />
         </label>
         <label>
           Correo
-          <input id="sellerEmail" type="email" placeholder="kam2.mx@nomadgenetics.com" />
+          <input id="sellerEmail" type="email" placeholder="Ingresa tu correo" required />
         </label>
         <button type="submit" class="btn primary full">Entrar</button>
       </form>
-      <p class="tiny">Prueba sugerida: kam2.mx@nomadgenetics.com / Angel Sánchez, ger.genomica@nomadgenetics.com / Marymar Martinez o kam.gdl1@nomadgenetics.com / Claudia.</p>
+      
     </div>
   </div>
 
   <div id="appView" class="screen hidden">
     <header class="topbar">
       <div>
-        <p class="eyebrow">NOMAD · FIREBASE + EXCEL</p>
+        <p class="eyebrow">NOMAD · FIREBASE</p>
         <h1>Panel de comisiones</h1>
         <p class="muted">Vendedor: <strong id="currentSeller">-</strong> · <span id="currentSellerEmail">Sin correo</span></p>
       </div>
@@ -58,7 +58,7 @@
       </section>
 
       <section class="cards">
-        <article class="card">
+        <article class="card accent-card">
           <span class="card-label">Cotizaciones consideradas</span>
           <strong id="quotesCount">0</strong>
           <small id="acceptedLegend">Solo aceptadas</small>
@@ -76,12 +76,107 @@
         <article class="card">
           <span class="card-label">Comisión médico</span>
           <strong id="doctorTotal">$0.00</strong>
-          <small>Referencia desde Excel</small>
+          <small>Referencia de comisiones</small>
         </article>
         <article class="card warning">
           <span class="card-label">Pruebas sin match</span>
           <strong id="unmatchedCount">0</strong>
-          <small>Revisar nombres en Excel</small>
+          <small>Revisar nombres de pruebas</small>
+        </article>
+      </section>
+
+      <section class="goals-grid">
+        <article class="panel goal-panel hero-goal">
+          <div class="panel-head compact-head">
+            <div>
+              <p class="eyebrow small">META DEL MES</p>
+              <h2>Impulso de comisiones</h2>
+            </div>
+            <span class="badge success" id="goalStatusBadge">En ruta</span>
+          </div>
+          <p class="muted">Ajusta tu meta mensual y revisa el avance para cerrar con una comisión más fuerte.</p>
+          <div class="goal-inputs">
+            <label>
+              Meta comisión comercial
+              <input id="commissionGoalInput" type="number" min="0" step="100" placeholder="Ej. 50000" />
+            </label>
+            <label>
+              Meta de venta mensual
+              <input id="salesGoalInput" type="number" min="0" step="1000" placeholder="Ej. 300000" />
+            </label>
+          </div>
+          <div class="goal-actions">
+            <button id="saveGoalsBtn" class="btn primary">Guardar metas</button>
+            <button id="resetGoalsBtn" class="btn ghost">Restablecer</button>
+          </div>
+          <div id="goalMotivator" class="motivator-box">Define una meta para empezar a medir tu avance del mes.</div>
+        </article>
+
+        <article class="panel chart-panel ring-panel">
+          <div class="panel-head compact-head">
+            <h2>Avance de comisión</h2>
+            <span class="mini-note" id="commissionGoalMini">Sin meta</span>
+          </div>
+          <div class="ring-wrap">
+            <div class="progress-ring" id="commissionRing" style="--progress:0deg">
+              <div class="ring-inner">
+                <strong id="commissionProgressPercent">0%</strong>
+                <span>de meta</span>
+              </div>
+            </div>
+          </div>
+          <div class="progress-meta">
+            <div><span>Llevas</span><strong id="commissionCurrentValue">$0.00</strong></div>
+            <div><span>Meta</span><strong id="commissionGoalValue">$0.00</strong></div>
+            <div><span>Falta</span><strong id="commissionRemainingValue">$0.00</strong></div>
+          </div>
+        </article>
+
+        <article class="panel chart-panel ring-panel">
+          <div class="panel-head compact-head">
+            <h2>Avance de ventas</h2>
+            <span class="mini-note" id="salesGoalMini">Sin meta</span>
+          </div>
+          <div class="ring-wrap">
+            <div class="progress-ring soft-ring" id="salesRing" style="--progress:0deg">
+              <div class="ring-inner">
+                <strong id="salesProgressPercent">0%</strong>
+                <span>del objetivo</span>
+              </div>
+            </div>
+          </div>
+          <div class="progress-meta">
+            <div><span>Llevas</span><strong id="salesCurrentValue">$0.00</strong></div>
+            <div><span>Meta</span><strong id="salesGoalValue">$0.00</strong></div>
+            <div><span>Falta</span><strong id="salesRemainingValue">$0.00</strong></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="panel chart-panel wide-panel">
+          <div class="panel-head compact-head">
+            <div>
+              <p class="eyebrow small">RITMO DEL MES</p>
+              <h2>Comisión por semana</h2>
+            </div>
+            <span class="mini-note">Visual rápido del avance</span>
+          </div>
+          <div id="weeklyChart" class="bars-chart empty-chart"></div>
+        </article>
+
+        <article class="panel chart-panel">
+          <div class="panel-head compact-head">
+            <div>
+              <p class="eyebrow small">ENFOQUE</p>
+              <h2>Mix de estatus</h2>
+            </div>
+            <span class="mini-note">Aceptadas vs seguimiento</span>
+          </div>
+          <div class="status-visual">
+            <div class="status-stack" id="statusStack"></div>
+            <div class="status-legend" id="statusLegend"></div>
+          </div>
         </article>
       </section>
 
@@ -125,7 +220,7 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>Pruebas sin relación en Excel</h2>
+          <h2>Pruebas sin relación</h2>
         </div>
         <div id="unmatchedList" class="chips-list">
           <span class="empty-chip">Sin diferencias por ahora.</span>

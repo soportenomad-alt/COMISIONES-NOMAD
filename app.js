@@ -12,6 +12,7 @@ const firebaseConfigNomad = {
 };
 
 const STORAGE_KEY = "nomadComisionesFirebaseSeller";
+const GOALS_KEY = "nomadComisionesGoals";
 const COLLECTION_NAME = "cotizaciones";
 
 const app = initializeApp(firebaseConfigNomad);
@@ -42,17 +43,41 @@ const tableCount = document.getElementById("tableCount");
 const quotesTableBody = document.getElementById("quotesTableBody");
 const detailBox = document.getElementById("detailBox");
 const unmatchedList = document.getElementById("unmatchedList");
+const commissionGoalInput = document.getElementById("commissionGoalInput");
+const salesGoalInput = document.getElementById("salesGoalInput");
+const saveGoalsBtn = document.getElementById("saveGoalsBtn");
+const resetGoalsBtn = document.getElementById("resetGoalsBtn");
+const goalStatusBadge = document.getElementById("goalStatusBadge");
+const goalMotivator = document.getElementById("goalMotivator");
+const commissionRing = document.getElementById("commissionRing");
+const salesRing = document.getElementById("salesRing");
+const commissionProgressPercent = document.getElementById("commissionProgressPercent");
+const salesProgressPercent = document.getElementById("salesProgressPercent");
+const commissionCurrentValue = document.getElementById("commissionCurrentValue");
+const commissionGoalValue = document.getElementById("commissionGoalValue");
+const commissionRemainingValue = document.getElementById("commissionRemainingValue");
+const salesCurrentValue = document.getElementById("salesCurrentValue");
+const salesGoalValue = document.getElementById("salesGoalValue");
+const salesRemainingValue = document.getElementById("salesRemainingValue");
+const commissionGoalMini = document.getElementById("commissionGoalMini");
+const salesGoalMini = document.getElementById("salesGoalMini");
+const weeklyChart = document.getElementById("weeklyChart");
+const statusStack = document.getElementById("statusStack");
+const statusLegend = document.getElementById("statusLegend");
 
 const SELLER_DIRECTORY = [
   { email: "kam2.mx@nomadgenetics.com", name: "Angel Sánchez", aliases: ["angel", "angel sanchez", "angel sánchez"] },
-  { email: "ger.genomica@nomadgenetics.com", name: "Marymar Martinez", aliases: ["marymar", "marymar martinez"] }
+  { email: "ger.genomica@nomadgenetics.com", name: "Marymar Martinez", aliases: ["marymar", "marymar martinez"] },
+  { email: "kam.gdl1@nomadgenetics.com", name: "Claudia", aliases: ["claudia"] },
+  { email: "kam3@sanaresalud.com", name: "BERENICE", aliases: ["berenice", "berenice ordaz naranjo"] }
 ];
 
 const state = {
   seller: null,
   allQuotes: [],
   filteredQuotes: [],
-  selectedQuoteId: null
+  selectedQuoteId: null,
+  goals: { commission: 50000, sales: 300000 }
 };
 
 const money = new Intl.NumberFormat("es-MX", {
@@ -124,9 +149,16 @@ function findSellerDirectoryEntry({ email = "", name = "" } = {}) {
   const normalizedEmail = normalize(email);
   const normalizedName = normalize(name);
   return SELLER_DIRECTORY.find((entry) => {
-    if (normalizedEmail && normalize(entry.email) === normalizedEmail) return true;
-    if (normalizedName && normalize(entry.name) === normalizedName) return true;
-    return (entry.aliases || []).some((alias) => normalize(alias) === normalizedName || normalize(alias) === normalizedEmail);
+    const emailMatch = normalizedEmail && normalize(entry.email) === normalizedEmail;
+    const nameMatch = normalizedName && (
+      normalize(entry.name) === normalizedName ||
+      (entry.aliases || []).some((alias) => normalize(alias) === normalizedName)
+    );
+
+    if (normalizedEmail && normalizedName) return emailMatch && nameMatch;
+    if (normalizedEmail) return emailMatch;
+    if (normalizedName) return nameMatch;
+    return false;
   }) || null;
 }
 
@@ -294,6 +326,11 @@ function renderSummary() {
   unmatchedCount.textContent = String(totals.unmatched.size);
   tableCount.textContent = `${rows.length} resultado${rows.length === 1 ? "" : "s"}`;
 
+  state.lastSummary = totals;
+  renderGoals(totals);
+  renderWeeklyChart(rows);
+  renderStatusMix(rows);
+
   if (!totals.unmatched.size) {
     unmatchedList.innerHTML = `<span class="empty-chip">Sin diferencias por ahora.</span>`;
   } else {
@@ -412,6 +449,141 @@ function csvEscape(value) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
+
+function loadGoals() {
+  try {
+    const raw = localStorage.getItem(GOALS_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    state.goals.commission = Number(parsed.commission || state.goals.commission || 0);
+    state.goals.sales = Number(parsed.sales || state.goals.sales || 0);
+  } catch (_) {}
+}
+
+function saveGoals() {
+  state.goals.commission = Number(commissionGoalInput.value || 0);
+  state.goals.sales = Number(salesGoalInput.value || 0);
+  localStorage.setItem(GOALS_KEY, JSON.stringify(state.goals));
+  renderGoals(state.lastSummary || { sales: 0, commercial: 0 });
+}
+
+function resetGoals() {
+  state.goals = { commission: 50000, sales: 300000 };
+  commissionGoalInput.value = state.goals.commission;
+  salesGoalInput.value = state.goals.sales;
+  localStorage.setItem(GOALS_KEY, JSON.stringify(state.goals));
+  renderGoals(state.lastSummary || { sales: 0, commercial: 0 });
+}
+
+function setRingProgress(element, percent) {
+  const safePercent = Math.max(0, Math.min(100, percent || 0));
+  element.style.setProperty("--progress", `${(safePercent / 100) * 360}deg`);
+}
+
+function buildWeeklyBuckets(rows) {
+  const buckets = [0, 0, 0, 0, 0];
+  rows.forEach((quote) => {
+    const raw = String(quote.fechaEmision || "");
+    const date = /^\d{4}-\d{2}-\d{2}/.test(raw) ? new Date(`${raw.slice(0, 10)}T12:00:00`) : null;
+    const day = date && !Number.isNaN(date.getTime()) ? date.getDate() : 1;
+    const index = Math.min(4, Math.floor((Math.max(1, day) - 1) / 7));
+    buckets[index] += Number(quote.matchedCommercial || 0);
+  });
+  return buckets;
+}
+
+function renderWeeklyChart(rows) {
+  if (!rows.length) {
+    weeklyChart.className = "bars-chart empty-chart";
+    weeklyChart.innerHTML = "No hay datos suficientes para construir el ritmo del mes.";
+    return;
+  }
+  const values = buildWeeklyBuckets(rows);
+  const max = Math.max(...values, 1);
+  const labels = ["Semana 1", "Semana 2", "Semana 3", "Semana 4", "Semana 5"];
+  weeklyChart.className = "bars-chart";
+  weeklyChart.innerHTML = values.map((value, idx) => {
+    const height = Math.max(10, Math.round((value / max) * 100));
+    return `
+      <div class="bar-col">
+        <div class="bar-track"><div class="bar-fill" style="height:${height}%">${value > 0 ? `${Math.round((value / max) * 100)}%` : ""}</div></div>
+        <div class="bar-label">${labels[idx]}</div>
+        <div class="bar-value">${formatMoney(value)}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderStatusMix(rows) {
+  const accepted = rows.filter((quote) => quote.accepted).length;
+  const pending = rows.filter((quote) => {
+    const val = normalize(quote.status1);
+    return !quote.accepted && (val.includes("negoci") || val.includes("seguimiento") || val.includes("pend"));
+  }).length;
+  const other = Math.max(0, rows.length - accepted - pending);
+  const total = Math.max(1, rows.length);
+  const segments = [
+    { cls: "seg-accepted", count: accepted, label: "Aceptadas", dot: "dot-accepted" },
+    { cls: "seg-pending", count: pending, label: "Seguimiento", dot: "dot-pending" },
+    { cls: "seg-other", count: other, label: "Otros", dot: "dot-other" }
+  ];
+  statusStack.innerHTML = segments.map((item) => `<div class="status-segment ${item.cls}" style="width:${(item.count / total) * 100}%"></div>`).join("");
+  statusLegend.innerHTML = segments.map((item) => `
+    <div class="legend-row">
+      <div class="legend-left"><span class="legend-dot ${item.dot}"></span>${item.label}</div>
+      <strong>${item.count} · ${Math.round((item.count / total) * 100)}%</strong>
+    </div>
+  `).join("");
+}
+
+function renderGoals(summary) {
+  const currentCommercial = Number(summary.commercial || 0);
+  const currentSales = Number(summary.sales || 0);
+  const goalCommission = Number(state.goals.commission || 0);
+  const goalSales = Number(state.goals.sales || 0);
+
+  commissionGoalInput.value = goalCommission || 0;
+  salesGoalInput.value = goalSales || 0;
+
+  const commissionPercent = goalCommission > 0 ? (currentCommercial / goalCommission) * 100 : 0;
+  const salesPercent = goalSales > 0 ? (currentSales / goalSales) * 100 : 0;
+  const remainingCommission = Math.max(0, goalCommission - currentCommercial);
+  const remainingSales = Math.max(0, goalSales - currentSales);
+
+  setRingProgress(commissionRing, commissionPercent);
+  setRingProgress(salesRing, salesPercent);
+  commissionProgressPercent.textContent = `${Math.round(Math.min(999, commissionPercent || 0))}%`;
+  salesProgressPercent.textContent = `${Math.round(Math.min(999, salesPercent || 0))}%`;
+
+  commissionCurrentValue.textContent = formatMoney(currentCommercial);
+  commissionGoalValue.textContent = formatMoney(goalCommission);
+  commissionRemainingValue.textContent = formatMoney(remainingCommission);
+  salesCurrentValue.textContent = formatMoney(currentSales);
+  salesGoalValue.textContent = formatMoney(goalSales);
+  salesRemainingValue.textContent = formatMoney(remainingSales);
+  commissionGoalMini.textContent = goalCommission > 0 ? `Meta: ${formatMoney(goalCommission)}` : "Sin meta";
+  salesGoalMini.textContent = goalSales > 0 ? `Meta: ${formatMoney(goalSales)}` : "Sin meta";
+
+  const topPercent = Math.max(commissionPercent, salesPercent);
+  if (topPercent >= 100) {
+    goalStatusBadge.textContent = "Meta cumplida";
+    goalStatusBadge.className = "badge success";
+    goalMotivator.textContent = `Excelente. Ya alcanzaste una de tus metas del mes y llevas ${formatMoney(currentCommercial)} de comisión comercial.`;
+  } else if (topPercent >= 70) {
+    goalStatusBadge.textContent = "Muy buen ritmo";
+    goalStatusBadge.className = "badge";
+    goalMotivator.textContent = `Vas muy bien. Te faltan ${formatMoney(remainingCommission)} de comisión o ${formatMoney(remainingSales)} de venta para cerrar tu objetivo.`;
+  } else if (topPercent > 0) {
+    goalStatusBadge.textContent = "En ruta";
+    goalStatusBadge.className = "badge";
+    goalMotivator.textContent = `Buen arranque. Cada cotización aceptada suma al cierre del mes. Mantén el ritmo y revisa tus semanas más fuertes.`;
+  } else {
+    goalStatusBadge.textContent = "Sin avance";
+    goalStatusBadge.className = "badge";
+    goalMotivator.textContent = "Todavía no hay avance con los filtros actuales. Revisa otro mes o habilita más cotizaciones para medir mejor.";
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -423,10 +595,23 @@ function escapeHtml(value) {
 
 loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  state.seller = resolveSellerSession({
+  const rawSeller = {
     name: sellerNameInput.value.trim(),
     email: sellerEmailInput.value.trim()
-  });
+  };
+  const entry = findSellerDirectoryEntry(rawSeller);
+
+  if (!rawSeller.name || !rawSeller.email) {
+    alert("Captura nombre y correo para ingresar.");
+    return;
+  }
+
+  if (!entry) {
+    alert("Tu nombre y correo no coinciden con un acceso autorizado.");
+    return;
+  }
+
+  state.seller = resolveSellerSession(rawSeller);
   saveSession();
   renderAppState();
   applyFilters();
@@ -441,6 +626,8 @@ logoutBtn.addEventListener("click", () => {
 });
 
 refreshBtn.addEventListener("click", loadQuotes);
+saveGoalsBtn.addEventListener("click", saveGoals);
+resetGoalsBtn.addEventListener("click", resetGoals);
 exportBtn.addEventListener("click", exportCsv);
 [monthFilter, searchInput, acceptedOnly, showAllSellerQuotes].forEach((el) => el.addEventListener("input", applyFilters));
 quotesTableBody.addEventListener("click", (event) => {
@@ -450,8 +637,15 @@ quotesTableBody.addEventListener("click", (event) => {
   renderDetail();
 });
 
+loadGoals();
 loadSession();
-if (state.seller) state.seller = resolveSellerSession(state.seller);
+if (state.seller) {
+  const persistedEntry = findSellerDirectoryEntry(state.seller);
+  state.seller = persistedEntry ? resolveSellerSession(state.seller) : null;
+}
 renderAppState();
 monthFilter.value = new Date().toISOString().slice(0, 7);
 await loadQuotes();
+if (state.seller) {
+  applyFilters();
+}
